@@ -54,7 +54,23 @@ while read -r name url; do
   fi
 done < manifest/plugins.txt
 
-# --- 4. systemd user units ---------------------------------------------------
+# --- 4. Theme overlay fixes --------------------------------------------------
+# Deployed as real file copies, NOT symlinks: `omarchy theme set` builds its
+# staged theme with `cp -r`, which preserves symlinks as symlinks rather than
+# following them. A symlinked overlay file ends up copied-as-a-symlink into a
+# different directory depth and dangles there, breaking theme-set entirely.
+if [[ -d manifest/theme-overlays ]]; then
+  say "Deploying theme overlay fixes"
+  for theme_dir in manifest/theme-overlays/*/; do
+    theme="$(basename "$theme_dir")"
+    dest=~/.config/omarchy/themes/"$theme"
+    mkdir -p "$dest"
+    cp -r "$theme_dir"* "$dest"/
+    echo "  - $theme"
+  done
+fi
+
+# --- 5. systemd user units ---------------------------------------------------
 # Unit *files* are stowed above; the enable/mask state is symlinks systemd
 # generates, so recreate it here.
 say "Enabling systemd user units"
@@ -75,7 +91,7 @@ while read -r unit; do
   systemctl --user mask "$unit" 2>/dev/null || true
 done < manifest/systemd-masked.txt
 
-# --- 5. Packages (opt-in) ----------------------------------------------------
+# --- 6. Packages (opt-in) ----------------------------------------------------
 if [[ "${1:-}" == "--packages" ]]; then
   say "Installing repo packages"
   sudo pacman -S --needed --noconfirm - < manifest/pkglist-repo.txt

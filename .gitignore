@@ -20,6 +20,14 @@ id_ed25519*
 omarchy/.config/omarchy/themes/
 omarchy/.config/omarchy/plugins/
 
+# Bug-fix overlays for stock Omarchy themes (~/.config/omarchy/themes/<name>/)
+# are NOT stowed as symlinks: `omarchy theme set` runs `cp -r` on that
+# directory while building the staged theme, preserving symlinks as symlinks
+# instead of following them -- a stowed symlink there gets copied into a
+# different directory depth and dangles, breaking theme-set entirely. Their
+# master copies live as plain files in manifest/theme-overlays/ instead, and
+# install.sh copies them into place. See README.
+
 # Editor/runtime noise
 nvim/.config/nvim/lazy-lock.json.bak
 __pycache__/
