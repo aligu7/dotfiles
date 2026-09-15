@@ -1,0 +1,5 @@
+forest-green https://github.com/abhijeet-swami/omarchy-forest-green-theme
+koyanagi https://github.com/YutaKoyanagi10/omarchy-koyanagi-theme.git
+nujabes https://github.com/HalmyLyseas/omarchy-nujabes-theme
+oxford https://github.com/HANCORE-linux/omarchy-oxford-theme
+temerald https://github.com/Ahmad-Mtr/omarchy-temerald-theme

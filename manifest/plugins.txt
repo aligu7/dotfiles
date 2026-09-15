@@ -1,0 +1,2 @@
+io.github.idr4n.prayer-times https://github.com/idr4n/omarchy-prayer-times.git
+orsa.remote-cliamp https://github.com/orsa86/omarchy-remote-cliamp

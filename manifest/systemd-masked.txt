@@ -1,0 +1,3 @@
+gnome-keyring-daemon.service
+gnome-keyring-daemon.socket
+gnome-keyring.service

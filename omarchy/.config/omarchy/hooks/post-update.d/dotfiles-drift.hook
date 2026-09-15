@@ -1,0 +1,31 @@
+#!/bin/bash
+# Runs after every `omarchy update`.
+#
+# Omarchy may rewrite configs it owns during an update. Everything tracked in
+# ~/dotfiles is symlinked, so any such rewrite lands in the repo as a git diff
+# instead of silently replacing your version. This surfaces that immediately.
+
+set -e
+
+DOTFILES="$HOME/dotfiles"
+[[ -d "$DOTFILES/.git" ]] || exit 0
+
+changed=$(git -C "$DOTFILES" status --porcelain 2>/dev/null)
+[[ -z "$changed" ]] && exit 0
+
+count=$(printf '%s\n' "$changed" | wc -l)
+
+# Re-link anything an update replaced with a real file instead of a symlink.
+if command -v stow >/dev/null; then
+  (cd "$DOTFILES" && for pkg in hypr omarchy terminals shell bin systemd apps; do
+    [[ -d "$pkg" ]] && stow --restow --no-folding "$pkg" 2>/dev/null || true
+  done)
+fi
+
+omarchy-notification-send -u critical -g 󰊢 \
+  "Dotfiles drifted ($count file(s))" \
+  "omarchy update changed tracked config. Review with: git -C ~/dotfiles diff" \
+  2>/dev/null || {
+    echo "Dotfiles drifted ($count file(s)). Review: git -C ~/dotfiles diff"
+    printf '%s\n' "$changed"
+  }
