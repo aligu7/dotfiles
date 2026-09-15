@@ -237,6 +237,7 @@ steam
 stow
 strace
 sushi
+syncthing
 system-config-printer
 tailscale
 tensaku

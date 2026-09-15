@@ -73,7 +73,7 @@ fi
 # --- 5. systemd user units ---------------------------------------------------
 # Unit *files* are stowed above; the enable/mask state is symlinks systemd
 # generates, so recreate it here.
-say "Enabling systemd user units"
+say "Enabling systemd user units (local unit files)"
 systemctl --user daemon-reload
 for unit in systemd/.config/systemd/user/*.{service,timer}; do
   [[ -e "$unit" ]] || continue
@@ -83,6 +83,21 @@ for unit in systemd/.config/systemd/user/*.{service,timer}; do
   echo "  - enable $name"
   systemctl --user enable --now "$name" 2>/dev/null || echo "    ! could not enable $name"
 done
+
+# manifest/systemd-enabled.txt additionally records units that have NO local
+# file at all -- entirely packaged units (syncthing, bt-agent, wireplumber,
+# etc.) that were simply `systemctl --user enable`d on the source machine.
+# Re-enabling here is what actually makes this manifest useful instead of
+# write-only: sync.sh regenerates it, install.sh consumes it. Safe to re-run
+# on units already enabled above (systemctl enable is idempotent); units
+# whose package isn't installed just fail with a warning, not a hard stop.
+say "Enabling packaged units from manifest"
+while read -r unit; do
+  [[ -z "${unit:-}" ]] && continue
+  echo "  - enable $unit"
+  systemctl --user enable --now "$unit" 2>/dev/null \
+    || echo "    ! $unit not available (package not installed?)"
+done < manifest/systemd-enabled.txt
 
 say "Masking units"
 while read -r unit; do

@@ -7,6 +7,7 @@ omarchy-recover-internal-monitor.service
 omarchy-sleep-lock.service
 omarchy-tailscale-receive.service
 pipewire-pulse.service
+syncthing.service
 voxtype.service
 wireplumber.service
 xdg-user-dirs.service
