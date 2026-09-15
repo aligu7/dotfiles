@@ -1,0 +1,6 @@
+[font]
+base-size = 12
+
+# Slightly slimmer bar (theme default is 26).
+[bar]
+size-horizontal = 24
