@@ -1,0 +1,28 @@
+#!/bin/bash
+# Monitor for systemctl suspend calls - logs caller info
+JOURNAL_FOLLOW_PID=$$
+echo "[suspend-monitor] Watching for suspend requests. PID: $$"
+
+# Monitor journal for suspend requests
+journalctl --user -f --output=json 2>/dev/null | while read -r line; do
+  if echo "$line" | grep -q "systemctl suspend\|suspend requested"; then
+    ts=$(date '+%H:%M:%S')
+    echo "[$ts] SUSPEND DETECTED!"
+    echo "$line"
+    # Try to find what's calling it
+    ps aux | grep -i systemctl | grep -v grep
+    echo "---"
+  fi
+done &
+
+# Also watch systemctl binary execution via polling /proc
+while sleep 0.5; do
+  for pid in $(pgrep -x systemctl 2>/dev/null); do
+    cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr '\0' ' ')
+    if echo "$cmdline" | grep -q "suspend"; then
+      ppid=$(cat /proc/$pid/status 2>/dev/null | grep PPid | awk '{print $2}')
+      pname=$(cat /proc/$ppid/cmdline 2>/dev/null | tr '\0' ' ')
+      echo "[$(date '+%H:%M:%S')] systemctl suspend called by PID $ppid ($pname)"
+    fi
+  done
+done

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+file=$(fzf)
+
+if [[ -z "$file" || ! -f "$file" ]]; then
+  exit 0
+fi
+
+abs_file=$(realpath "$file")
+ext="${abs_file##*.}"
+mime=$(file -b --mime-type "$abs_file" 2>/dev/null)
+
+if [[ "$mime" == text/* ]] || [[ "$ext" =~ ^(typ|json|toml|yaml|yml|md|lua|sh|cfg|conf)$ ]]; then
+  nvim "$abs_file"
+else
+  if command -v gio &>/dev/null; then
+    setsid gio open "$abs_file" >/dev/null 2>&1
+  else
+    setsid xdg-open "$abs_file" >/dev/null 2>&1
+  fi
+fi
+
+echo "$abs_file"

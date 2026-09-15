@@ -1,0 +1,13 @@
+[Unit]
+Description=Calibre Content Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=calibre-server --port 1504 --listen=0.0.0.0
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+

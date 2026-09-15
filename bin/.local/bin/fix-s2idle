@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+echo "=== Fix 1: Set s2idle at runtime ==="
+echo s2idle > /sys/power/mem_sleep
+echo "OK - current sleep modes: $(cat /sys/power/mem_sleep)"
+
+echo "=== Fix 2: Persist s2idle across reboots (edit limine.conf) ==="
+LIMINE=/boot/limine.conf
+if grep -q 'mem_sleep_default=deep' "$LIMINE"; then
+  sed -i 's/mem_sleep_default=deep/mem_sleep_default=s2idle/' "$LIMINE"
+  echo "OK - limine.conf updated"
+else
+  echo "SKIP - mem_sleep_default=deep not found in limine.conf"
+fi
+
+echo "=== Fix 3: Persist via systemd sleep.conf drop-in ==="
+mkdir -p /etc/systemd/sleep.conf.d
+cat > /etc/systemd/sleep.conf.d/00-s2idle.conf << 'EOF'
+[Sleep]
+SuspendState=s2idle
+MemorySleepMode=s2idle
+EOF
+echo "OK - /etc/systemd/sleep.conf.d/00-s2idle.conf created"
+
+echo ""
+echo "=== ALL FIXES APPLIED ==="
+echo "Runtime: s2idle is now active (no reboot needed)"
+echo "Persistent: limine.conf and sleep.conf.d updated (effect after reboot)"
+echo ""
+echo "Now test: systemctl suspend → then wake → then omarchy system lock"

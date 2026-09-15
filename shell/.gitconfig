@@ -1,0 +1,10 @@
+[user]
+	email = ali.guliyevoo7@gmail.com
+	name = Ali Guliyev
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+[credential]
+	helper = store

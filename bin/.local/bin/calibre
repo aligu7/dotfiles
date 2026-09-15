@@ -1,0 +1,4 @@
+#!/bin/bash
+trap 'systemctl --user start calibre-server.service' EXIT
+systemctl --user stop calibre-server.service
+/usr/bin/calibre "$@"

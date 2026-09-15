@@ -1,0 +1,10 @@
+[Unit]
+Description=Keep the OmaPrayers location in sync with the system timezone
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Nightlight Toggle - Evening on
+
+[Service]
+Type=oneshot
+ExecStart=/home/ag07/.local/share/omarchy/bin/omarchy-toggle-nightlight

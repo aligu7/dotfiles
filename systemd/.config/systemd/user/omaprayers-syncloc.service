@@ -1,0 +1,6 @@
+[Unit]
+Description=Sync the OmaPrayers bar widget to the system timezone
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/omaprayers-syncloc

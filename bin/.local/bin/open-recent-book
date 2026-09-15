@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Open the most recently viewed book from Evince's recent files
+# that is located inside ~/Documents/personal/Books/
+
+BOOKS_DIR="$HOME/Documents/personal/Books"
+
+FILE=$(python3 -c "
+import gi, os
+gi.require_version('Gtk','3.0')
+from gi.repository import Gtk
+rm = Gtk.RecentManager.get_default()
+docs = []
+for item in rm.get_items():
+    path = item.get_uri_display()
+    if not path or not path.startswith('$BOOKS_DIR'):
+        continue
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in ('.pdf','.ps','.eps','.djvu','.tiff','.tif','.dvi','.xps','.epub','.cbz','.cbr','.cb7','.cbt'):
+        continue
+    if item.exists():
+        docs.append((item.get_modified(), path))
+docs.sort(reverse=True)
+print(docs[0][1] if docs else '')
+")
+
+if [[ -z "$FILE" ]]; then
+  echo "No recent books found in $BOOKS_DIR"
+  exit 1
+fi
+
+evince "$FILE" 2>/dev/null &

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Nightlight auto-toggler
+# Checks time and toggles hyprsunset at sunrise/sunset
+
+NIGHT_ON=19
+NIGHT_OFF=7
+CHECK_INTERVAL=300  # Check every 5 minutes
+
+while true; do
+    CURRENT_HOUR=$(date +%H)
+    CURRENT_HOUR=$((10#$CURRENT_HOUR))
+    
+    if [ $CURRENT_HOUR -ge $NIGHT_ON ] || [ $CURRENT_HOUR -lt $NIGHT_OFF ]; then
+        # Night time - should be nightlight on (4000K)
+        TEMP=$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+')
+        if [ "$TEMP" != "4000" ]; then
+            hyprctl hyprsunset temperature 4000 2>/dev/null
+            logger "Nightlight ON (night time)"
+        fi
+    else
+        # Day time - should be daylight (identity/no tint)
+        TEMP=$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+')
+        if [ "$TEMP" != "6500" ] && [ "$TEMP" != "6000" ]; then
+            hyprctl hyprsunset temperature 6500 2>/dev/null
+            logger "Nightlight OFF (day time)"
+        fi
+    fi
+    
+    sleep $CHECK_INTERVAL
+done

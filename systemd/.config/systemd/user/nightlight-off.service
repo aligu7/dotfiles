@@ -1,0 +1,6 @@
+[Unit]
+Description=Nightlight OFF - Morning (daylight)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'hyprctl hyprsunset temperature 6500'

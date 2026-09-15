@@ -1,0 +1,16 @@
+#!/bin/bash
+DISCORD_VERSION=$(/opt/discord/Discord --version 2>&1 | grep -oP '\d+\.\d+\.\d+' | head -1)
+LATEST_VERSION=$(curl -s "https://discord.com/api/downloads/stable?platform=linux&arch=x86_64" 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "$DISCORD_VERSION")
+
+if [ "$DISCORD_VERSION" != "$LATEST_VERSION" ] && [ -n "$LATEST_VERSION" ]; then
+    TEMP_DIR=$(mktemp -d)
+    cd "$TEMP_DIR"
+    curl -L -o discord.tar.gz "https://stable.dl2.discordapp.net/apps/linux/${LATEST_VERSION}/discord-${LATEST_VERSION}.tar.gz" 2>/dev/null
+    if [ -f discord.tar.gz ]; then
+        tar -xzf discord.tar.gz
+        rm -rf /opt/discord
+        mv Discord /opt/discord
+        chmod +x /opt/discord/Discord
+    fi
+    rm -rf "$TEMP_DIR"
+fi

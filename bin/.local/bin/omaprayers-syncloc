@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Keep the OmaPrayers bar widget on the system timezone.
+
+Resolves the current IANA timezone to representative coordinates from the tz
+database (/usr/share/zoneinfo/zone.tab), then updates the OmaPrayers entry in
+~/.config/omarchy/shell.json when the location changed. The shell hot-reloads
+shell.json and the plugin refetches prayer data on any config change, so no
+restart is needed. Runs as a no-op when nothing changed.
+"""
+
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+WIDGET_ID = "io.github.salemsayed.omaprayers"
+CONFIG_PATH = Path.home() / ".config/omarchy/shell.json"
+ZONE_TAB = Path("/usr/share/zoneinfo/zone.tab")
+
+
+def current_timezone():
+    try:
+        real = os.path.realpath("/etc/localtime")
+        prefix = "/usr/share/zoneinfo/"
+        if real.startswith(prefix):
+            zone = real[len(prefix):]
+            if zone and not zone.startswith(".."):
+                return zone
+    except OSError:
+        pass
+    try:
+        zone = os.popen("timedatectl show -p Timezone --value 2>/dev/null").read().strip()
+        if zone:
+            return zone
+    except OSError:
+        pass
+    return None
+
+
+def lookup_coordinates(zone):
+    try:
+        with ZONE_TAB.open(encoding="utf-8") as fh:
+            for line in fh:
+                if not line or line.startswith("#"):
+                    continue
+                fields = line.rstrip("\n").split("\t")
+                if len(fields) >= 3 and fields[2] == zone:
+                    return fields[1]
+    except OSError:
+        pass
+    return None
+
+
+def _parse_field(field):
+    sign = -1 if field[0] == "-" else 1
+    digits = field[1:]
+    if len(digits) in (4, 5):
+        deg = int(digits[:-2])
+        minutes = int(digits[-2:])
+        seconds = 0
+    elif len(digits) in (6, 7):
+        deg = int(digits[:-4])
+        minutes = int(digits[-4:-2])
+        seconds = int(digits[-2:])
+    else:
+        return None
+    return sign * (deg + minutes / 60.0 + seconds / 3600.0)
+
+
+def parse_iso6709(raw):
+    # zone.tab coordinates are ISO 6709 without a comma, e.g. +4023+04951
+    # or +513030-0000731 (latitude, then longitude).
+    match = re.match(r"^([+-]\d+)([+-]\d+)$", raw)
+    if not match:
+        return None, None
+    return _parse_field(match.group(1)), _parse_field(match.group(2))
+
+
+def location_label(zone):
+    return zone.rstrip("/").rsplit("/", 1)[-1].replace("_", " ")
+
+
+def widget_entry(config):
+    for section in config.get("bar", {}).get("layout", {}).values():
+        for entry in section:
+            if isinstance(entry, dict) and entry.get("id") == WIDGET_ID:
+                return entry
+    return None
+
+
+def fmt(value):
+    return f"{value:.4f}"
+
+
+def main():
+    zone = current_timezone()
+    if not zone:
+        print("omaprayers-syncloc: could not determine the system timezone", file=sys.stderr)
+        return 1
+
+    raw = lookup_coordinates(zone)
+    if not raw:
+        print(
+            f"omaprayers-syncloc: no coordinates known for timezone {zone} "
+            "(e.g. Etc/UTC); leaving the prayer location unchanged",
+            file=sys.stderr,
+        )
+        return 1
+    lat, lon = parse_iso6709(raw)
+    if lat is None or lon is None:
+        print(f"omaprayers-syncloc: could not parse coordinates {raw!r} for {zone}", file=sys.stderr)
+        return 1
+
+    target = {
+        "locationLabel": location_label(zone),
+        "latitude": fmt(lat),
+        "longitude": fmt(lon),
+        "timezone": zone,
+    }
+
+    try:
+        with CONFIG_PATH.open(encoding="utf-8") as fh:
+            config = json.load(fh)
+    except (OSError, json.JSONDecodeError) as err:
+        print(f"omaprayers-syncloc: could not read {CONFIG_PATH}: {err}", file=sys.stderr)
+        return 1
+
+    entry = widget_entry(config)
+    if entry is None:
+        print(f"omaprayers-syncloc: {WIDGET_ID} is not on the bar; nothing to update")
+        return 0
+
+    current = {
+        "locationLabel": str(entry.get("locationLabel", "")),
+        "latitude": str(entry.get("latitude", "")),
+        "longitude": str(entry.get("longitude", "")),
+        "timezone": str(entry.get("timezone", "")),
+    }
+    if current == target:
+        return 0
+
+    for key, value in target.items():
+        entry[key] = value
+
+    tmp = CONFIG_PATH.with_name(CONFIG_PATH.name + ".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as fh:
+            json.dump(config, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+        os.replace(tmp, CONFIG_PATH)
+    except OSError as err:
+        print(f"omaprayers-syncloc: could not write {CONFIG_PATH}: {err}", file=sys.stderr)
+        tmp.unlink(missing_ok=True)
+        return 1
+
+    print(f"omaprayers-syncloc: prayer location updated -> {target}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
