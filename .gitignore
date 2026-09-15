@@ -1,0 +1,26 @@
+# Omarchy drops timestamped backups next to configs during updates.
+# --no-folding keeps them out of the repo, but belt-and-braces:
+*.bak
+*.bak.*
+*.backup
+*.orig
+*~
+
+# Never track secrets
+.env
+*.env
+secrets*
+.git-credentials
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Cloned upstream content (re-cloned by install.sh from manifest/)
+omarchy/.config/omarchy/themes/
+omarchy/.config/omarchy/plugins/
+
+# Editor/runtime noise
+nvim/.config/nvim/lazy-lock.json.bak
+__pycache__/
+*.pyc
