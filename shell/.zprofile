@@ -5,5 +5,5 @@
 
 
 # Added by Toolbox App
-export PATH="$PATH:/home/ag07/.local/share/JetBrains/Toolbox/scripts"
+export PATH="$PATH:$HOME/.local/share/JetBrains/Toolbox/scripts"
 
