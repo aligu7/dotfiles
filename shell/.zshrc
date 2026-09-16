@@ -62,7 +62,7 @@ SAVEHIST=10000
 setopt appendhistory
 
 # pnpm
-export PNPM_HOME="/home/ag07/.local/share/pnpm"
+export PNPM_HOME="$HOME/.local/share/pnpm"
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
@@ -77,7 +77,7 @@ typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # fnm
-FNM_PATH="/home/ag07/.local/share/fnm"
+FNM_PATH="$HOME/.local/share/fnm"
 if [ -d "$FNM_PATH" ]; then
   export PATH="$FNM_PATH:$PATH"
   eval "$(fnm env --shell zsh)"
