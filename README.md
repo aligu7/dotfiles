@@ -28,7 +28,7 @@ Then always:
 
 - `hypr` — hyprland config
 - `omarchy` — bar, hooks, backgrounds, theme overlays, shell.json
-- `terminals` — alacritty / foot / kitty / ghostty
+- `terminals` — ghostty
 - `shell` — zshrc, gitconfig, bashrc, p10k
 - `bin` — my scripts in `~/.local/bin`
 - `systemd` — user units I wrote myself
