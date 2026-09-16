@@ -3,7 +3,7 @@
 # Open the most recently viewed book from Evince's recent files
 # that is located inside ~/Documents/personal/Books/
 
-BOOKS_DIR="$HOME/Documents/personal/Books"
+BOOKS_DIR="$HOME/org/library"
 
 FILE=$(python3 -c "
 import gi, os

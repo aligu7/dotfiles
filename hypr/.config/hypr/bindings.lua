@@ -97,7 +97,7 @@ o.bind("SUPER + ALT + M", "Toggle mouse sensitivity", "/home/ag07/.config/hypr/t
 -- ===== Books =====
 -- SUPER+CTRL+B was the Bluetooth panel; now opens the Books folder.
 hl.unbind("SUPER + CTRL + B")
-o.bind("SUPER + CTRL + B", "Books", "uwsm-app -- thunar /home/ag07/Documents/personal/Books")
+o.bind("SUPER + CTRL + B", "Books", "uwsm-app -- thunar /home/ag07/org/library")
 
 -- SUPER+SHIFT+B was Browser; now opens the most recent book.
 hl.unbind("SUPER + SHIFT + B")

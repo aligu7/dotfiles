@@ -49,7 +49,7 @@ alias cdcode='cd ~/Documents/code'
 alias cdlama='cd ~/Documents/code/lama-trader'
 alias cdobs="cd ~/Documents/Obsidian\ Vault/Personal/"
 alias night-light-toggle="~/scripts/night-light-toggle.sh"
-alias nvim-book-notes="nvim ~/Documents/personal/Books/notes"
+alias nvim-book-notes="nvim ~/org/library/notes"
 alias snvim='sudo -E nvim'
 
 # Set-up FZF key bindings (CTRL R for fuzzy history finder)
