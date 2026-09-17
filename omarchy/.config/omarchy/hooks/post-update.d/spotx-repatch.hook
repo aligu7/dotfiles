@@ -1,0 +1,22 @@
+#!/bin/bash
+# Re-apply the SpotX ad-block patch after every omarchy update.
+#
+# `omarchy update` upgrades the `spotify` package as part of its normal
+# system-package sync, which overwrites SpotX's patched client files with a
+# fresh stock build (ads included). This hook re-runs the same SpotX-Bash
+# patch used manually (https://github.com/SpotX-Official/SpotX-Bash) right
+# after, using --noninteractive since nothing is watching to answer prompts.
+
+set -e
+
+command -v spotify >/dev/null 2>&1 || exit 0
+
+if bash <(curl -sSL https://spotx-official.github.io/run.sh) --noninteractive; then
+  omarchy-notification-send -g 🎧 "SpotX re-patched" \
+    "Spotify's ad-block patch was re-applied after the update." \
+    2>/dev/null || true
+else
+  omarchy-notification-send -u critical -g 🎧 "SpotX re-patch failed" \
+    "Re-run manually: bash <(curl -sSL https://spotx-official.github.io/run.sh)" \
+    2>/dev/null || true
+fi
