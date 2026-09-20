@@ -66,7 +66,7 @@ hl.unbind("SUPER + SHIFT + W")
 o.bind(
 	"SUPER + SHIFT + W",
 	"Todos",
-	'uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" nvim -n /home/ag07/Documents/todos.typ'
+	'uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" nvim -n /home/ag07/org/todos.typ'
 )
 
 o.bind("SUPER + SHIFT + SLASH", "Passwords", "uwsm-app -- 1password")
