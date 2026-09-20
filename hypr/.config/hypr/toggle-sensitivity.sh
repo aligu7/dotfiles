@@ -7,7 +7,7 @@ HIGH="-0.7" # (mouse)
 current=$(hyprctl getoption input:sensitivity -j | jq -r '.float')
 
 if (($(echo "$current == $LOW" | bc -l))); then
-  hyprctl keyword input:sensitivity "$HIGH"
+  hyprctl eval "hl.config({ input = { sensitivity = $HIGH } })"
 else
-  hyprctl keyword input:sensitivity "$LOW"
+  hyprctl eval "hl.config({ input = { sensitivity = $LOW } })"
 fi
