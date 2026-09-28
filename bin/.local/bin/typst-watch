@@ -1,0 +1,285 @@
+#!/usr/bin/env bash
+#
+# typst-watch — compile a Typst file, open the PDF, and stop the watcher as
+# soon as the PDF viewer is closed.
+#
+# Why this exists instead of `typst watch --open`:
+#   * `typst watch` loops on filesystem events forever and never exits by
+#     itself.
+#   * Its `--open` flag spawns a *detached* viewer that Typst does not track
+#     (typst-cli's open_output() uses open::with_detached), so closing the
+#     viewer leaves an orphan watcher behind.
+#   * That orphan keeps rebuilding the PDF, so deleting the PDF does not get rid
+#     of it: the next save, or any later import, writes it straight back.
+#
+# This wrapper owns both processes instead:
+#   stop any previous watcher -> watch -> open viewer -> viewer closed -> stop
+#
+# Ctrl+C does the same thing, and `--stop` does it from another terminal.
+# Note that Evince is single-instance, so `--stop` closes Evince itself, along
+# with any other document it happens to have open.
+
+set -uo pipefail
+
+VIEWER="${TYPST_VIEWER:-evince}"
+VIEWER_CLASS="${TYPST_VIEWER_CLASS:-evince}"
+POLL="${TYPST_WATCH_POLL:-0.4}"
+RUNTIME="${XDG_RUNTIME_DIR:-/tmp}/typst-watch"
+
+mkdir -p "$RUNTIME" || {
+  printf 'typst-watch: cannot create %s\n' "$RUNTIME" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+usage: typst-watch [--stop] [--no-open] [--log] [--viewer CMD] [FILE.typ]
+
+  FILE.typ   file to watch (default: the only .typ file in the current dir)
+  --stop     stop the watcher for FILE.typ, close its viewer, then exit
+  --no-open  keep watching but do not open a viewer
+  --log      print the watcher's log (compile errors) and exit
+  --viewer   viewer command (default: evince, or $TYPST_VIEWER)
+
+The watcher stops automatically when the PDF viewer window is closed.
+EOF
+}
+
+die() {
+  printf 'typst-watch: %s\n' "$*" >&2
+  exit 1
+}
+
+# --- process helpers ---------------------------------------------------------
+
+# Is $1 this script or one of its ancestors? Used to make sure the pattern
+# matches below can never make us kill our own shell.
+is_self_or_ancestor() {
+  local target="$1" p="$$"
+  while [[ -n "$p" && "$p" != "0" && "$p" != "1" ]]; do
+    [[ "$p" == "$target" ]] && return 0
+    p="$(awk '/^PPid:/ { print $2 }' "/proc/$p/status" 2>/dev/null)"
+  done
+  return 1
+}
+
+# Print the pids whose full command line matches $1, minus our own lineage.
+pids_matching() {
+  local pattern="$1" pid
+  for pid in $(pgrep -f -- "$pattern" 2>/dev/null); do
+    is_self_or_ancestor "$pid" && continue
+    printf '%s\n' "$pid"
+  done
+}
+
+quote_ere() {
+  printf '%s' "$1" | sed 's/[][\\.^$*+?(){}|\/]/\\&/g'
+}
+
+# Is the child $1 still running? A child that has exited but not yet been reaped
+# lingers in the process table as a zombie, and `kill -0` succeeds on a zombie,
+# so liveness has to go through the process state. Reap it on the way out.
+child_alive() {
+  local state
+  state="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
+  state="${state//[[:space:]]/}"
+  [[ -n "$state" && "$state" != Z* ]] || {
+    wait "$1" 2>/dev/null
+    return 1
+  }
+  return 0
+}
+
+# Print the pids of viewer windows whose title mentions this PDF.
+viewer_window_pids() {
+  local base="$1"
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  hyprctl clients 2>/dev/null | awk -v base="$base" -v vcls="$VIEWER_CLASS" '
+    function emit() {
+      if (pid != "" && pid != "0" \
+          && index(tolower(cls), tolower(vcls)) \
+          && index(tolower(ttl), tolower(base)))
+        print pid
+    }
+    /^Window /                        { if (seen) emit(); seen = 1; cls = ""; ttl = ""; pid = "" }
+    /^[[:space:]]*class: /            { cls = $0; sub(/^.*class:[[:space:]]*/, "", cls) }
+    /^[[:space:]]*title: /            { ttl = $0; sub(/^.*title:[[:space:]]*/, "", ttl) }
+    /^[[:space:]]*pid: /              { pid = $0; sub(/^.*pid:[[:space:]]*/, "", pid) }
+    END                              { if (seen) emit() }
+  '
+}
+
+# --- state -------------------------------------------------------------------
+
+input=""
+output=""
+logfile=""
+
+watcher_pids() {
+  pids_matching "typst watch .*$(quote_ere "$input")"
+}
+
+stop_watchers() {
+  local pids
+  pids="$(watcher_pids)"
+  [[ -n "$pids" ]] || return 0
+  printf '%s\n' "$pids" | while read -r pid; do
+    kill "$pid" 2>/dev/null
+  done
+  for _ in {1..15}; do
+    [[ -z "$(watcher_pids)" ]] && return 0
+    sleep 0.2
+  done
+  watcher_pids | while read -r pid; do
+    kill -9 "$pid" 2>/dev/null
+  done
+  return 0
+}
+
+close_viewer() {
+  local base="${output##*/}" pid
+  for pid in $(viewer_window_pids "$base"); do
+    kill "$pid" 2>/dev/null
+  done
+}
+
+# --- argument parsing --------------------------------------------------------
+
+stop_only=0
+no_open=0
+show_log=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --stop) stop_only=1 ;;
+    --no-open) no_open=1 ;;
+    --log) show_log=1 ;;
+    --viewer)
+      [[ $# -ge 2 ]] || die "--viewer needs a command"
+      VIEWER="$2"
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    -*)
+      usage >&2
+      die "unknown option: $1"
+      ;;
+    *)
+      [[ -z "$input" ]] || die "only one file at a time"
+      input="$1"
+      ;;
+  esac
+  shift
+done
+
+if [[ -z "$input" ]]; then
+  shopt -s nullglob
+  candidates=(*.typ)
+  shopt -u nullglob
+  if [[ ${#candidates[@]} -ne 1 ]]; then
+    usage >&2
+    die "no .typ file given, and ${#candidates[@]} in $PWD"
+  fi
+  input="${candidates[0]}"
+fi
+
+[[ -f "$input" ]] || die "no such file: $input"
+input="$(realpath "$input")"
+[[ "$input" == *.typ ]] || die "not a .typ file: $input"
+
+output="${input%.typ}.pdf"
+key="$(printf '%s' "$input" | cksum | cut -d' ' -f1)"
+logfile="$RUNTIME/$key.log"
+
+if ((show_log)); then
+  [[ -f "$logfile" ]] || die "no log yet for $input"
+  cat "$logfile"
+  exit 0
+fi
+
+# Never stack watchers: one stray per file is exactly the bug this fixes.
+had_prev=0
+[[ -n "$(watcher_pids)" ]] && had_prev=1
+stop_watchers
+if ((had_prev)) && ((stop_only == 0)); then
+  printf 'typst-watch: replaced the watcher already running on %s\n' "${input##*/}"
+fi
+
+if ((stop_only)); then
+  close_viewer
+  printf 'typst-watch: stopped watching %s\n' "$input"
+  exit 0
+fi
+
+# --- run ---------------------------------------------------------------------
+
+setsid typst watch "$input" >"$logfile" 2>&1 </dev/null &
+watch_pid=$!
+
+# Wait for the first compile to land before opening the viewer. Keyed off the
+# log rather than the PDF, so a document that fails to compile still opens (and
+# gets its errors reported) instead of stalling here for the full timeout.
+for _ in {1..100}; do
+  grep -q '^\[' "$logfile" 2>/dev/null && break
+  child_alive "$watch_pid" || break
+  sleep 0.1
+done
+
+if ((no_open)); then
+  printf 'typst-watch: watching %s (no viewer)\n' "$input"
+  printf 'typst-watch: log %s, stop with: typst-watch --stop %s\n' "$logfile" "$input"
+  exit 0
+fi
+
+"$VIEWER" "$output" >/dev/null 2>&1 &
+viewer_pid=$!
+
+cleanup() {
+  trap - EXIT
+  stop_watchers
+  kill "$viewer_pid" 2>/dev/null
+  wait "$viewer_pid" 2>/dev/null
+}
+# A signal handler that only cleans up would fall back into the wait loop below,
+# so it has to leave explicitly.
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT TERM
+
+printf 'typst-watch: watching %s\n' "$input"
+printf 'typst-watch: close the PDF to stop, or Ctrl+C here. log: %s\n' "$logfile"
+
+# Decide when the document is closed. The window is the better signal, because
+# Evince is a single-instance app: one process can hold several documents, so
+# "the viewer process is still running" does not mean our PDF is still open.
+# The process is only used as a fallback for when no window ever shows up (no
+# compositor to ask, a headless run, or a viewer that failed to start).
+base="${output##*/}"
+saw_window=0
+gone=0
+while :; do
+  if [[ -n "$(viewer_window_pids "$base")" ]]; then
+    saw_window=1
+    gone=0
+  elif ((saw_window)); then
+    break
+  elif child_alive "$viewer_pid"; then
+    gone=0
+  else
+    # A viewer that hands the document to an already-running instance exits
+    # straight away, so give the window a moment to show up before deciding the
+    # document is gone.
+    gone=$((gone + 1))
+    ((gone >= 5)) && break
+  fi
+  sleep "$POLL"
+done
+
+stop_watchers
+if grep -q '^error' "$logfile" 2>/dev/null; then
+  printf 'typst-watch: last compile failed:\n'
+  grep -m3 '^error' "$logfile"
+fi
+printf 'typst-watch: stopped watching %s\n' "$input"

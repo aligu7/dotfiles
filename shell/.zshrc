@@ -88,6 +88,10 @@ export PATH="$HOME/.local/bin:$PATH"
 # Force the calibre-server-pausing wrapper regardless of PATH order
 alias calibre="$HOME/.local/bin/calibre"
 
+# Typst: `tw <file.typ>` watches and previews, and stops as soon as the PDF is
+# closed. `tw --stop` ends a watch left over from a previous session.
+alias tw="$HOME/.local/bin/typst-watch"
+
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=#a8a8a8'
 
 export MANPAGER="nvim +Man!"
