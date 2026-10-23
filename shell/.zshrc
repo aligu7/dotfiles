@@ -46,6 +46,7 @@ alias ls='eza -a --icons'
 alias ll='eza -al --icons'
 alias lt='eza -a --tree --level=1 --icons'
 alias cdcode='cd ~/Documents/code'
+alias cduni='cd ~/org/uni'
 alias cdlama='cd ~/Documents/code/lama-trader'
 alias cdobs="cd ~/Documents/Obsidian\ Vault/Personal/"
 alias night-light-toggle="~/scripts/night-light-toggle.sh"
