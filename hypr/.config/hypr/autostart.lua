@@ -4,6 +4,8 @@
 -- Night light / blue light filter.
 o.launch_on_start("hyprsunset")
 
--- Turn off Telegram and Vencord by adding "--" below:
--- o.launch_on_start("telegram-desktop")
--- o.launch_on_start("vesktop")
+-- Turn off autostart processes by adding "--" below:
+-- o.launch_on_start("jetbrains-toolbox.desktop --minimize")
+-- o.launch_on_start("/opt/telegram/Telegram -startintray")
+-- o.launch_on_start("vesktop --start-minimized")
+-- o.launch_on_start("")
